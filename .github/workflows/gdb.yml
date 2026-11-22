@@ -39,6 +39,7 @@ jobs:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
           RUN_MINUTES: "55"
+          POLL_SECONDS: "30"
           ANNOUNCE: ${{ inputs.announce && '1' || '' }}
 
       - name: Save state
