@@ -18,6 +18,7 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -49,9 +50,27 @@ def http_json(url, data=None):
         return json.loads(r.read().decode())
 
 
+class SourceError(Exception):
+    pass
+
+
+def call(source, url, data=None):
+    """כמו http_json, אבל השגיאה אומרת מי נכשל (Wolt/Telegram) ומה הוא ענה."""
+    try:
+        return http_json(url, data)
+    except urllib.error.HTTPError as e:
+        try:
+            body = e.read().decode(errors="replace")[:300]
+        except Exception:
+            body = ""
+        raise SourceError(f"{source} HTTP {e.code}: {body}") from None
+    except Exception as e:
+        raise SourceError(f"{source}: {e}") from None
+
+
 def is_available():
     """True = אפשר להזמין עכשיו. זורק שגיאה אם וולט לא ענה."""
-    v = http_json(WOLT_URL).get("venue") or {}
+    v = call("Wolt", WOLT_URL).get("venue") or {}
     status = v.get("delivery_open_status") or v.get("open_status") or {}
     return bool(v.get("online")) and bool(status.get("is_open"))
 
@@ -60,7 +79,7 @@ def post(available):
     name = "GDB" if SLUG == "gdb" else SLUG
     text = (f"🍔 {name} פתוח! לחצו כאן להזמנה: {VENUE_LINK}" if available
             else f"{name} עכשיו סגור :( {VENUE_LINK}")
-    http_json(f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+    call("Telegram", f"https://api.telegram.org/bot{TOKEN}/sendMessage",
               {"chat_id": CHANNEL, "text": text,
                # הודעת "סגור" נשלחת בשקט, בלי צלצול
                "disable_notification": not available})
